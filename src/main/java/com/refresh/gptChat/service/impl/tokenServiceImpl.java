@@ -59,6 +59,7 @@ public class tokenServiceImpl implements tokenService {
      * @throws IOException
      */
     public String getAccessToken(String refresh_token) {
+        log.info("refreshToken:{}", refresh_token);
         if ("oai".equals(getAccessTokenService.toLowerCase())) {
             return oaiGetAccessToken(refresh_token);
         } else if ("ninja".equals(getAccessTokenService.toLowerCase())) {
