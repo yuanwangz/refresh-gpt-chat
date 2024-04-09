@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -17,7 +16,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Slf4j
 public class TokenInfo {
     private String refreshToken;
     private String accessToken;
@@ -45,7 +43,6 @@ public class TokenInfo {
 
             // 如果RefreshToken非空，则尝试获取新的AccessToken
             if (!StringUtils.isEmpty(tokenInfo.getRefreshToken())) {
-                log.info("refreshToken:{}", tokenInfo.getRefreshToken());
                 String newAccessToken = tokenService.getAccessToken(tokenInfo.getRefreshToken());
 
                 // 如果新的AccessToken非空，则更新tokenInfo的AccessToken和status，然后返回
