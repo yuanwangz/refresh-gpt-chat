@@ -1,15 +1,15 @@
 package com.refresh.gptChat.controller;
 
-import com.refresh.gptChat.pojo.Conversation;
-import com.refresh.gptChat.pojo.Image;
-import com.refresh.gptChat.pojo.Result;
-import com.refresh.gptChat.pojo.Speech;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refresh.gptChat.pojo.*;
 import com.refresh.gptChat.service.messageService;
 import com.refresh.gptChat.service.outPutService;
 import com.refresh.gptChat.service.processService;
 import com.refresh.gptChat.service.tokenService;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.apache.commons.lang.StringUtils;
 import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,10 +26,17 @@ import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+
+import static com.refresh.gptChat.pojo.TokenInfo.getAccess_token;
 
 /**
  * @author Yangyang
@@ -74,7 +81,7 @@ public class chatController {
     /**
      * 缓存access_token
      */
-    private static ConcurrentHashMap<String, String> refreshTokenList;
+    private static ConcurrentHashMap<String, List<TokenInfo>> refreshTokenList;
     /**
      * 定义线程池里的线程名字
      */
@@ -132,7 +139,7 @@ public class chatController {
     @Autowired
     private processService processService;
 
-    public static ConcurrentHashMap<String, String> getRefreshTokenList() {
+    public static ConcurrentHashMap<String, List<TokenInfo>> getRefreshTokenList() {
         return refreshTokenList;
     }
 
@@ -144,19 +151,50 @@ public class chatController {
     @PostConstruct
     public void init() {
         setExecutor(max_threads);
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode json = mapper.readTree(new String(Files.readAllBytes(Paths.get("/app/accounts.json"))));
+            Iterator<String> fieldNames = json.fieldNames();
+            while (fieldNames.hasNext()) {
+                String key = fieldNames.next();
+                List<TokenInfo> tokensList = new ArrayList<>();
+                for (JsonNode node: json.get(key)) {
+                    String refreshToken = node.get("refreshToken").asText();
+                    String accessToken = node.get("accessToken").asText();
+                    String status = node.get("status").asText();
+                    String request_id = node.get("request_id").asText();
+                    if(!((StringUtils.isEmpty(refreshToken)&&StringUtils.isEmpty(accessToken))||"0".equals(status))){
+                        tokensList.add(new TokenInfo(refreshToken, accessToken, request_id, status));
+                    }
+                }
+                refreshTokenList.put(key, tokensList);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        log.info("refreshTokenList初始化成功！");
     }
 
     @Scheduled(cron = "0 0 0 */3 * ?")
     private void clearModelsUsage() {
         int count = 0;
-        for (Map.Entry<String, String> entry : refreshTokenList.entrySet()) {
-            String access_token = tokenService.getAccessToken(entry.getKey());
-            if (access_token != null) {
-                refreshTokenList.put(entry.getKey(), access_token);
-                count++;
+
+        for (Map.Entry<String, List<TokenInfo>> entry : refreshTokenList.entrySet()) {
+            String key = entry.getKey();
+            List<TokenInfo> tokens = entry.getValue();
+
+            for (TokenInfo token : tokens) {
+                if(!StringUtils.isEmpty(token.getRefreshToken())){
+                    String newAccessToken = tokenService.getAccessToken(token.getRefreshToken());
+                    token.setAccessToken(newAccessToken);
+                    count++;
+                }
+
             }
         }
-        log.info("检查access_token成功：" + count + "失败：" + (refreshTokenList.size() - count));
+        log.info("更新accessToken数：{}",count);
     }
 
     /**
@@ -186,10 +224,11 @@ public class chatController {
                     conversation.setModel(conversation.getModel().replace(cancelGizmo, ""));
                 }
                 String[] result = messageService.extractApiKeyAndRequestUrl(authorizationHeader);
-                String refresh_token = result[0];
+                String key = result[0];
                 String request_url = result[1];
-                String request_id = result[2];
-                String access_token = getAccess_token(refresh_token);
+                TokenInfo tokenInfo = getAccess_token(key, refreshTokenList, tokenService, null);
+                String access_token = tokenInfo.getAccessToken();
+                String request_id = tokenInfo.getRequestId();
                 Map<String, String> headersMap = tokenService.addHeader(access_token, request_id);
                 String json = com.alibaba.fastjson2.JSON.toJSONString(conversation);
                 RequestBody requestBody = RequestBody.create(json, mediaType);
@@ -205,8 +244,8 @@ public class chatController {
                 try (Response resp = client.newCall(streamRequest).execute()) {
                     if (!resp.isSuccessful()) {
                         processService.chatManageUnsuccessfulResponse(refreshTokenList, resp,
-                                refresh_token, response, conversation, chatUrl,
-                                request_id);
+                                key, response, conversation, chatUrl,
+                                request_id, tokenInfo);
                     } else {
                         // 流式和非流式输出
                         outPutService.outPutChat(response, resp, conversation);
@@ -247,10 +286,11 @@ public class chatController {
         CompletableFuture<ResponseEntity<Object>> future = CompletableFuture.supplyAsync(() -> {
             try {
                 String[] result = messageService.extractApiKeyAndRequestUrl(authorizationHeader);
-                String refresh_token = result[0];
+                String key = result[0];
                 String request_url = result[1];
-                String request_id = result[2];
-                String access_token = getAccess_token(refresh_token);
+                TokenInfo tokenInfo = getAccess_token(key, refreshTokenList, tokenService, null);
+                String access_token = tokenInfo.getAccessToken();
+                String request_id = tokenInfo.getRequestId();
                 Map<String, String> headersMap = tokenService.addHeader(access_token, request_id);
                 String imageUrl = request_url;
                 // 检查URL是否包含要去除的部分
@@ -268,8 +308,8 @@ public class chatController {
                 try (Response resp = client.newCall(streamRequest).execute()) {
                     if (!resp.isSuccessful()) {
                         processService.imageManageUnsuccessfulResponse(refreshTokenList, resp,
-                                refresh_token, response, conversation, imageUrl,
-                                request_id);
+                                key, response, conversation, imageUrl,
+                                request_id, tokenInfo);
                     } else {
                         // 回复image回答
                         outPutService.outPutImage(response, resp, conversation);
@@ -314,10 +354,11 @@ public class chatController {
                     return new ResponseEntity<>(Result.error("Request body is missing or not in JSON format"), HttpStatus.BAD_REQUEST);
                 }
                 String[] result = messageService.extractApiKeyAndRequestUrl(authorizationHeader);
-                String refresh_token = result[0];
+                String key = result[0];
                 String request_url = result[1];
-                String request_id = result[2];
-                String access_token = getAccess_token(refresh_token);
+                TokenInfo tokenInfo = getAccess_token(key, refreshTokenList, tokenService, null);
+                String access_token = tokenInfo.getAccessToken();
+                String request_id = tokenInfo.getRequestId();
                 String speechUrl = request_url;
                 // 检查URL是否包含要去除的部分
                 if (request_url.contains(chatPath)) {
@@ -334,8 +375,8 @@ public class chatController {
                 try (Response resp = client.newCall(streamRequest).execute()) {
                     if (!resp.isSuccessful()) {
                         processService.speechManageUnsuccessfulResponse(refreshTokenList, resp,
-                                refresh_token, response, conversation, speechUrl,
-                                request_id);
+                                key, response, conversation, speechUrl,
+                                request_id, tokenInfo);
                     } else {
                         // speech 输出
                         outPutService.outPutSpeech(response, resp, conversation);
@@ -389,10 +430,11 @@ public class chatController {
                 CompletableFuture.supplyAsync(() -> {
                     try {
                         String[] result = messageService.extractApiKeyAndRequestUrl(authorizationHeader);
-                        String refresh_token = result[0];
+                        String key = result[0];
                         String request_url = result[1];
-                        String request_id = result[2];
-                        String access_token = getAccess_token(refresh_token);
+                        TokenInfo tokenInfo = getAccess_token(key, refreshTokenList, tokenService, null);
+                        String access_token = tokenInfo.getAccessToken();
+                        String request_id = tokenInfo.getRequestId();
                         String audioUrl = request_url;
                         if (request_url.contains(chatPath)) {
                             audioUrl = request_url.replace(chatPath, "");
@@ -415,8 +457,8 @@ public class chatController {
                             log.info(resp.toString());
                             if (!resp.isSuccessful()) {
                                 processService.audioManageUnsuccessfulResponse(refreshTokenList, resp,
-                                        refresh_token, response, fileBody, filename, model,
-                                        audioUrl, request_id);
+                                        key, response, fileBody, filename, model,
+                                        audioUrl, request_id, tokenInfo);
                             } else {
                                 outPutService.outPutAudio(response, resp, model);
                             }
@@ -469,10 +511,11 @@ public class chatController {
                 CompletableFuture.supplyAsync(() -> {
                     try {
                         String[] result = messageService.extractApiKeyAndRequestUrl(authorizationHeader);
-                        String refresh_token = result[0];
+                        String key = result[0];
                         String request_url = result[1];
-                        String request_id = result[2];
-                        String access_token = getAccess_token(refresh_token);
+                        TokenInfo tokenInfo = getAccess_token(key, refreshTokenList, tokenService, null);
+                        String access_token = tokenInfo.getAccessToken();
+                        String request_id = tokenInfo.getRequestId();
                         String editUrl = request_url;
                         if (request_url.contains(chatPath)) {
                             editUrl = request_url.replace(chatPath, "");
@@ -499,7 +542,7 @@ public class chatController {
                             log.info(resp.toString());
                             if (!resp.isSuccessful()) {
                                 processService.editManageUnsuccessfulResponse(refreshTokenList, resp,
-                                        refresh_token, response, imageBody,imageName,maskBody,maskName,prompt,n, editUrl,request_id);
+                                        key, response, imageBody,imageName,maskBody,maskName,prompt,n, editUrl,request_id, tokenInfo);
                             } else {
                                 outPutService.outPutEdit(response, resp);
                             }
@@ -512,23 +555,4 @@ public class chatController {
         return outPutService.getObjectResponseEntity(response, future);
     }
 
-    private String getAccess_token(String refresh_token) {
-        String access_token = refresh_token;
-        boolean is_access = refresh_token.startsWith("eyJhb");
-        if (!refreshTokenList.containsKey(refresh_token) && !is_access) {
-            String token = tokenService.getAccessToken(refresh_token);
-            if (token == null) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong!");
-            }
-            refreshTokenList.put(refresh_token, token);
-            log.info("refreshTokenList初始化成功！");
-            access_token = refreshTokenList.get(refresh_token);
-        } else {
-            if (!is_access) {
-                log.info("从缓存读取access_token成功！");
-                access_token = refreshTokenList.get(refresh_token);
-            }
-        }
-        return access_token;
-    }
 }

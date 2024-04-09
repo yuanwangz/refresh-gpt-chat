@@ -1,10 +1,7 @@
 package com.refresh.gptChat.service.impl;
 
 import com.alibaba.fastjson2.JSON;
-import com.refresh.gptChat.pojo.Conversation;
-import com.refresh.gptChat.pojo.Image;
-import com.refresh.gptChat.pojo.Result;
-import com.refresh.gptChat.pojo.Speech;
+import com.refresh.gptChat.pojo.*;
 import com.refresh.gptChat.service.processService;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
@@ -16,10 +13,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+
+import static com.refresh.gptChat.pojo.TokenInfo.getAccess_token;
 
 /**
  * @author Yangyang
@@ -61,32 +61,31 @@ public class processServiceImpl implements processService {
      * 重新回复问题
      */
     @Override
-    public void chatManageUnsuccessfulResponse(ConcurrentHashMap<String, String> refreshTokenList,
+    public void chatManageUnsuccessfulResponse(ConcurrentHashMap<String, List<TokenInfo>> refreshTokenList,
                                                Response resp,
                                                String refreshToken,
                                                HttpServletResponse response,
                                                Conversation conversation,
                                                String chatUrl,
-                                               String requestId) {
+                                               String requestId,
+                                               TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-            case 429:
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
-            case 401:
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "access_token is wrong");
+//            case 429:
+//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+//            case 401:
+//                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "access_token is wrong");
             case 404:
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "404");
             case 500:
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL SERVER ERROR");
             default:
-                String token = refreshToken;
-                if (!refreshToken.startsWith("eyJhb")) {
-                    token = tokenService.getAccessToken(refreshToken);
-                    if (token == null) {
-                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
-                    }
-                    refreshTokenList.put(refreshToken, token);
-                    log.info("assess_token过期，refreshTokenList重置化成功！");
+                TokenInfo tokenInfo = getAccess_token(refreshToken, refreshTokenList, tokenService, oldTokenInfo);
+                String token = tokenInfo.getAccessToken();
+                log.info("assess_token过期，refreshTokenList重置化成功！");
+                if (token == null) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
                 }
+
                 againChatConversation(response, conversation, token, chatUrl, requestId);
         }
     }
@@ -128,31 +127,29 @@ public class processServiceImpl implements processService {
      * 如发现token过期
      * 重新回复问题
      */
-    public void imageManageUnsuccessfulResponse(ConcurrentHashMap<String, String> refreshTokenList,
+    public void imageManageUnsuccessfulResponse(ConcurrentHashMap<String, List<TokenInfo>> refreshTokenList,
                                                 Response resp,
                                                 String refresh_token,
                                                 HttpServletResponse response,
                                                 @org.springframework.web.bind.annotation.RequestBody Image conversation,
                                                 String imageUrl,
-                                                String request_id) {
+                                                String request_id,
+                                                TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-            case 429:
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
-            case 401:
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
+//            case 429:
+//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+//            case 401:
+//                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "404");
             case 500:
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL SERVER ERROR");
             default:
-                String token = refresh_token;
-                if (!refresh_token.startsWith("eyJhb")) {
-                    token = tokenService.getAccessToken(refresh_token);
-                    if (token == null) {
-                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
-                    }
-                    refreshTokenList.put(refresh_token, token);
-                    log.info("assess_token过期，refreshTokenList重置化成功！");
+                TokenInfo tokenInfo = getAccess_token(refresh_token, refreshTokenList, tokenService, oldTokenInfo);
+                String token = tokenInfo.getAccessToken();
+                log.info("assess_token过期，refreshTokenList重置化成功！");
+                if (token == null) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
                 }
                 againImageConversation(response, conversation, token, imageUrl, request_id);
         }
@@ -195,31 +192,29 @@ public class processServiceImpl implements processService {
      * 如发现token过期
      * 重新回复问题
      */
-    public void speechManageUnsuccessfulResponse(ConcurrentHashMap<String, String> refreshTokenList,
+    public void speechManageUnsuccessfulResponse(ConcurrentHashMap<String, List<TokenInfo>> refreshTokenList,
                                                  Response resp,
                                                  String refresh_token,
                                                  HttpServletResponse response,
                                                  @org.springframework.web.bind.annotation.RequestBody Speech conversation,
                                                  String speechUrl,
-                                                 String request_id) {
+                                                 String request_id,
+                                                 TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-            case 429:
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
-            case 401:
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
+//            case 429:
+//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+//            case 401:
+//                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "404");
             case 500:
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL SERVER ERROR");
             default:
-                String token = refresh_token;
-                if (!refresh_token.startsWith("eyJhb")) {
-                    token = tokenService.getAccessToken(refresh_token);
-                    if (token == null) {
-                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
-                    }
-                    refreshTokenList.put(refresh_token, token);
-                    log.info("assess_token过期，refreshTokenList重置化成功！");
+                TokenInfo tokenInfo = getAccess_token(refresh_token, refreshTokenList, tokenService, oldTokenInfo);
+                String token = tokenInfo.getAccessToken();
+                log.info("assess_token过期，refreshTokenList重置化成功！");
+                if (token == null) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
                 }
                 againSpeechConversation(response, conversation, token, speechUrl, request_id);
         }
@@ -261,31 +256,29 @@ public class processServiceImpl implements processService {
      * 如发现token过期
      * 重新回复问题
      */
-    public void audioManageUnsuccessfulResponse(ConcurrentHashMap<String, String> refreshTokenList,
+    public void audioManageUnsuccessfulResponse(ConcurrentHashMap<String, List<TokenInfo>> refreshTokenList,
                                                 Response resp,
                                                 String refresh_token,
                                                 HttpServletResponse response,
                                                 RequestBody fileBody, String filename,
                                                 String model,
-                                                String audioUrl, String request_id) {
+                                                String audioUrl, String request_id,
+                                                TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-            case 429:
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
-            case 401:
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
+//            case 429:
+//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+//            case 401:
+//                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "404");
             case 500:
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL SERVER ERROR");
             default:
-                String token = refresh_token;
-                if (!refresh_token.startsWith("eyJhb")) {
-                    token = tokenService.getAccessToken(refresh_token);
-                    if (token == null) {
-                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
-                    }
-                    refreshTokenList.put(refresh_token, token);
-                    log.info("assess_token过期，refreshTokenList重置化成功！");
+                TokenInfo tokenInfo = getAccess_token(refresh_token, refreshTokenList, tokenService, oldTokenInfo);
+                String token = tokenInfo.getAccessToken();
+                log.info("assess_token过期，refreshTokenList重置化成功！");
+                if (token == null) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
                 }
                 againAudioConversation(response, fileBody, model, filename, token, audioUrl, request_id);
         }
@@ -334,7 +327,7 @@ public class processServiceImpl implements processService {
      * 重新回复问题
      */
     @Override
-    public void editManageUnsuccessfulResponse(ConcurrentHashMap<String, String> refreshTokenList,
+    public void editManageUnsuccessfulResponse(ConcurrentHashMap<String, List<TokenInfo>> refreshTokenList,
                                                Response resp,
                                                String refreshToken,
                                                HttpServletResponse response,
@@ -345,25 +338,23 @@ public class processServiceImpl implements processService {
                                                String prompt,
                                                String n,
                                                String editUrl,
-                                               String requestId) {
+                                               String requestId,
+                                               TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-            case 429:
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
-            case 401:
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
+//            case 429:
+//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+//            case 401:
+//                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "404");
             case 500:
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL SERVER ERROR");
             default:
-                String token = refreshToken;
-                if (!refreshToken.startsWith("eyJhb")) {
-                    token = tokenService.getAccessToken(refreshToken);
-                    if (token == null) {
-                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
-                    }
-                    refreshTokenList.put(refreshToken, token);
-                    log.info("assess_token过期，refreshTokenList重置化成功！");
+                TokenInfo tokenInfo = getAccess_token(refreshToken, refreshTokenList, tokenService, oldTokenInfo);
+                String token = tokenInfo.getAccessToken();
+                log.info("assess_token过期，refreshTokenList重置化成功！");
+                if (token == null) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh_token is wrong");
                 }
                 againEditConversation(response, imageBody,imageName,maskBody,maskName,prompt,n ,token, editUrl, requestId);
         }

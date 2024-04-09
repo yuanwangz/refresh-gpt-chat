@@ -1,0 +1,16 @@
+{
+  "sk-xxxxxxxx": [
+    {
+      "refreshToken": "", //refreshToken和accessToken不能同时为空
+      "accessToken": "", //refreshToken和accessToken不能同时为空
+      "request_id": "", //ChatGPT-Account-ID
+      "status": "1" //1:可用 0:不可用
+    },
+    {
+      "refreshToken": "",
+      "accessToken": "",
+      "request_id": "",
+      "status": "1"
+    }
+  ]
+}
