@@ -70,8 +70,8 @@ public class processServiceImpl implements processService {
                                                String requestId,
                                                TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-//            case 429:
-//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+            case 429:
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
 //            case 401:
 //                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "access_token is wrong");
             case 404:
@@ -136,8 +136,8 @@ public class processServiceImpl implements processService {
                                                 String request_id,
                                                 TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-//            case 429:
-//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+            case 429:
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
 //            case 401:
 //                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
@@ -201,8 +201,8 @@ public class processServiceImpl implements processService {
                                                  String request_id,
                                                  TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-//            case 429:
-//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+            case 429:
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
 //            case 401:
 //                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
@@ -265,8 +265,8 @@ public class processServiceImpl implements processService {
                                                 String audioUrl, String request_id,
                                                 TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-//            case 429:
-//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+            case 429:
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
 //            case 401:
 //                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
@@ -341,8 +341,8 @@ public class processServiceImpl implements processService {
                                                String requestId,
                                                TokenInfo oldTokenInfo) {
         switch (resp.code()) {
-//            case 429:
-//                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
+            case 429:
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded");
 //            case 401:
 //                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "models do not exist");
             case 404:
