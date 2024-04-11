@@ -242,6 +242,7 @@ public class chatController {
                 headersMap.forEach(requestBuilder::addHeader);
                 Request streamRequest = requestBuilder.build();
                 try (Response resp = client.newCall(streamRequest).execute()) {
+                    log.info("response_code:{}",resp.code());
                     if (!resp.isSuccessful()) {
                         processService.chatManageUnsuccessfulResponse(refreshTokenList, resp,
                                 key, response, conversation, chatUrl,
@@ -306,6 +307,7 @@ public class chatController {
                 headersMap.forEach(requestBuilder::addHeader);
                 Request streamRequest = requestBuilder.build();
                 try (Response resp = client.newCall(streamRequest).execute()) {
+                    log.info("response_code:{}",resp.code());
                     if (!resp.isSuccessful()) {
                         processService.imageManageUnsuccessfulResponse(refreshTokenList, resp,
                                 key, response, conversation, imageUrl,
@@ -373,6 +375,8 @@ public class chatController {
                 headersMap.forEach(requestBuilder::addHeader);
                 Request streamRequest = requestBuilder.build();
                 try (Response resp = client.newCall(streamRequest).execute()) {
+                    log.info("response_code:{}",resp.code());
+                    log.info("response_code:{}",resp.code());
                     if (!resp.isSuccessful()) {
                         processService.speechManageUnsuccessfulResponse(refreshTokenList, resp,
                                 key, response, conversation, speechUrl,

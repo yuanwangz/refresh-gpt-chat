@@ -174,7 +174,8 @@ public class processServiceImpl implements processService {
             headersMap.forEach(requestBuilder::addHeader);
             Request streamRequest = requestBuilder.build();
             try (Response resp = client.newCall(streamRequest).execute()) {
-                if (!resp.isSuccessful()) {
+                log.info("response_code:{}",resp.code());
+                    if (!resp.isSuccessful()) {
                     return new ResponseEntity<>(Result.error("refresh_token is wrong Or your network is wrong"), HttpStatus.UNAUTHORIZED);
                 } else {
                     // 回复image回答
@@ -238,7 +239,8 @@ public class processServiceImpl implements processService {
             headersMap.forEach(requestBuilder::addHeader);
             Request streamRequest = requestBuilder.build();
             try (Response resp = client.newCall(streamRequest).execute()) {
-                if (!resp.isSuccessful()) {
+                log.info("response_code:{}",resp.code());
+                    if (!resp.isSuccessful()) {
                     return new ResponseEntity<>("refresh_token is wrong Or your network is wrong", HttpStatus.UNAUTHORIZED);
                 } else {
                     // speech 输出
@@ -308,7 +310,8 @@ public class processServiceImpl implements processService {
 
             headersMap.forEach(requestBuilder::addHeader);
             try (Response resp = client.newCall(requestBuilder.build()).execute()) {
-                if (!resp.isSuccessful()) {
+                log.info("response_code:{}",resp.code());
+                    if (!resp.isSuccessful()) {
                     return new ResponseEntity<>("refresh_token is wrong Or your network is wrong", HttpStatus.UNAUTHORIZED);
                 } else {
                     // Audio 输出
